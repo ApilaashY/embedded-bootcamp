@@ -19,6 +19,8 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "spi.h"
+#include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
@@ -55,6 +57,9 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define MIN_DUTY_TIME 0.05
+#define MAX_DUTY_TIME 0.10
+#define MAX_ADC_VALUE 1023.0
 
 /* USER CODE END 0 */
 
@@ -87,7 +92,15 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_SPI1_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+
+  uint8_t SPI_TX[3];
+  uint8_t SPI_RX[3];
+  uint16_t ADC_Value;
+  uint16_t Register_Value;
 
   /* USER CODE END 2 */
 
@@ -95,6 +108,31 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  // Set the CS pin to high
+	  HAL_GPIO_WritePin(CS_PIN_GPIO_Port, CS_PIN_Pin, 1);
+
+	  // Setup bits for ADC
+	  SPI_TX[0] = 0b00000001;
+	  SPI_TX[1] = 0b10000000;
+	  SPI_TX[2] = 0b00000000;
+
+	  // Send and receive bits to ADC
+	  HAL_SPI_TransmitReceive(&hspi1, SPI_TX, SPI_RX, 3, HAL_MAX_DELAY);
+
+	  // Convert the received bits into a number from 0 to 1023
+	  ADC_Value = (SPI_RX[1] & 0b00000011 << 8) | SPI_RX[2];
+
+	  // Converts the ADC value into an appropriate value to set the register
+	  Register_Value = MIN_DUTY_TIME + (ADC_Value / MAX_ADC_VALUE) * (MAX_DUTY_TIME-MIN_DUTY_TIME);
+
+	  // Set the register
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, Register_Value);
+
+
+	  // Set the CS pin to low
+	  HAL_GPIO_WritePin(CS_PIN_GPIO_Port, CS_PIN_Pin, 0);
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -57,9 +57,8 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define MIN_DUTY_TIME 5
-#define MAX_DUTY_TIME 10
-#define SCALE_FACTOR 100
+#define MIN_DUTY_TIME 3200
+#define MAX_DUTY_TIME 6400
 #define MAX_ADC_VALUE 1023
 
 /* USER CODE END 0 */
@@ -100,9 +99,8 @@ int main(void)
 
   uint8_t SPI_TX[3];
   uint8_t SPI_RX[3];
-  uint16_t ADC_Value;
-  uint16_t Register_Value;
-  uint16_t Scaled_RV;
+  uint32_t ADC_Value;
+  uint32_t Register_Value;
 
   // Setup bits for ADC
   SPI_TX[0] = 0b00000001;
@@ -115,25 +113,25 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  // Set the CS pin to high
+	  // Set the CS pin to low
 	  HAL_GPIO_WritePin(CS_PIN_GPIO_Port, CS_PIN_Pin, 0);
 
 	  // Send and receive bits to ADC
 	  HAL_SPI_TransmitReceive(&hspi1, SPI_TX, SPI_RX, 3, HAL_MAX_DELAY);
 
-	  // Set the CS pin to low
+	  // Set the CS pin to high
 	  HAL_GPIO_WritePin(CS_PIN_GPIO_Port, CS_PIN_Pin, 1);
 
 	  // Convert the received bits into a number from 0 to 1023
 	  ADC_Value = ((SPI_RX[1] & 0b00000011) << 8) | SPI_RX[2];
 
 	  // Converts the ADC value into an appropriate value to set the register
-	  Register_Value = MIN_DUTY_TIME + (ADC_Value / MAX_ADC_VALUE) * (MAX_DUTY_TIME-MIN_DUTY_TIME);
+	  Register_Value = MIN_DUTY_TIME + ((ADC_Value * (MAX_DUTY_TIME-MIN_DUTY_TIME)) / MAX_ADC_VALUE);
 
-	  Scaled_RV = (Register_Value * __HAL_TIM_GET_AUTORELOAD(&htim1)) / SCALE_FACTOR;
 
-	  // Set the register
-	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, Scaled_RV);
+	  __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_1, Register_Value);
+
+	  HAL_Delay(10);
 
 
     /* USER CODE END WHILE */
